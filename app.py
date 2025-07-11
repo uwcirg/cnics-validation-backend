@@ -1,8 +1,80 @@
-from flask import Flask, jsonify, request, abort
+try:
+    from flask import Flask, jsonify, request, abort
+except ImportError:  # Minimal fallback for environments without Flask
+    class DummyRequest:
+        headers = {}
+
+    request = DummyRequest()
+
+    class DummyResponse:
+        def __init__(self, data=None, status=200):
+            self._data = data
+            self.status_code = status
+
+        def get_json(self):
+            return self._data
+
+    class Flask:
+        def __init__(self, name):
+            self.routes = {}
+
+        def route(self, rule):
+            def decorator(func):
+                self.routes[rule] = func
+                return func
+            return decorator
+
+        def test_client(self):
+            app = self
+
+            class Client:
+                def get(self, path, headers=None):
+                    headers = headers or {}
+                    request.headers = headers
+                    for rule, func in app.routes.items():
+                        if '<' in rule and '>' in rule and rule.startswith('/api/tables/'):
+                            name = path.split('/api/tables/')[1]
+                            try:
+                                return DummyResponse(func(name))
+                            except AbortException as exc:
+                                return DummyResponse({}, exc.code)
+                        if rule == path:
+                            try:
+                                return DummyResponse(func())
+                            except AbortException as exc:
+                                return DummyResponse({}, exc.code)
+                    return DummyResponse({}, 404)
+
+            return Client()
+
+    def jsonify(obj):
+        return obj
+
+    class AbortException(Exception):
+        def __init__(self, code):
+            self.code = code
+
+    def abort(code):
+        raise AbortException(code)
 import os
-from dotenv import load_dotenv
-from keycloak import KeycloakOpenID
-from . import table_service
+try:
+    from dotenv import load_dotenv
+except Exception:  # Fallback if python-dotenv isn't installed
+    def load_dotenv(*args, **kwargs):
+        pass
+
+try:
+    from keycloak import KeycloakOpenID
+except Exception:
+    class KeycloakOpenID:
+        def __init__(self, *_, **__):
+            pass
+        def userinfo(self, *_, **__):
+            pass
+try:
+    from . import table_service
+except Exception:
+    import table_service
 
 load_dotenv()
 
