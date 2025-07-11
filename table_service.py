@@ -1,7 +1,20 @@
 import os
-import mysql.connector
-from mysql.connector.pooling import MySQLConnectionPool
-from dotenv import load_dotenv
+try:
+    import mariadb
+except ImportError:
+    try:
+        import mysql.connector as mariadb
+        from mysql.connector.pooling import MySQLConnectionPool
+    except ImportError:
+        mariadb = None
+        MySQLConnectionPool = None
+else:
+    MySQLConnectionPool = None
+try:
+    from dotenv import load_dotenv
+except Exception:
+    def load_dotenv(*args, **kwargs):
+        pass
 
 load_dotenv()
 
@@ -19,11 +32,20 @@ POOL = None
 def get_pool():
     global POOL
     if POOL is None:
-        POOL = MySQLConnectionPool(
-            pool_name="mci_pool",
-            pool_size=10,
-            **DB_CONFIG,
-        )
+        if hasattr(mariadb, 'ConnectionPool'):
+            # Using MariaDB connector
+            POOL = mariadb.ConnectionPool(
+                pool_name="mci_pool",
+                pool_size=10,
+                **DB_CONFIG,
+            )
+        else:
+            # Fallback to mysql-connector implementation
+            POOL = MySQLConnectionPool(
+                pool_name="mci_pool",
+                pool_size=10,
+                **DB_CONFIG,
+            )
     return POOL
 
 def get_table_data(name: str):
