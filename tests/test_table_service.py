@@ -1,8 +1,8 @@
 from unittest.mock import MagicMock, patch
-import flask_backend.table_service as ts
+import table_service as ts
 
 
-@patch('flask_backend.table_service.get_pool')
+@patch('table_service.get_pool')
 def test_get_table_data(mock_get_pool):
     mock_conn = MagicMock()
     mock_cursor = MagicMock()
